@@ -1,21 +1,19 @@
 #include <stdio.h>
+#include <string.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <stdint.h>
 #include <driver/gpio.h>
-#include <esp_wifi.h>
+#include <esp_log.h>
+#include <help_utils.h>
+#include <esp_http_server.h>
+#include <wifi_handle.h>
+#include <ports_conf.h>
+#include <http_handle.h>
 
-#define GPIO_LED  GPIO_NUM_2
-#define GPIO_LED2  GPIO_NUM_5
-#define GPIO_ON     (1u)
-#define GPIO_OFF     (0u)
 
+const char *TAG = "tasks_app";
 
-typedef struct 
-{
-    char * TaskName;
-    uint32_t Period;
-} TasksConfig_t;
 
 
 static TasksConfig_t TasksConfig[3] = {
@@ -27,8 +25,6 @@ static TasksConfig_t TasksConfig[3] = {
 static void writeHello(void *arg);
 static void controlLed(void *arg);
 static void task_led2(void *arg);
-
-
 
 
 static void writeHello(void *arg)
@@ -61,8 +57,6 @@ static void controlLed(void *arg)
         printf("Led state %d\n", ledState);
         vTaskDelay(TasksConfig[1].Period);
     }
-    
-
 
 }
 
@@ -91,12 +85,21 @@ static void task_led2(void *arg)
 
 }
 
+
 void app_main()
 {
     BaseType_t taskCreate;
-    // wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
-    // ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    
+    app_wifi_start();
+
+
+    wifi_ap_record_t ap_record;
+    esp_wifi_sta_get_ap_info(&ap_record);
+    printf("AP info ssid %s\n , channel %d \n",ap_record.ssid, ap_record.primary);
+    show_mac(ap_record.bssid);
 
 
     gpio_set_direction(GPIO_LED, GPIO_MODE_OUTPUT);
@@ -106,6 +109,8 @@ void app_main()
     xTaskCreate(controlLed, TasksConfig[1].TaskName, 2048, NULL, 10, NULL);
     xTaskCreate(task_led2, TasksConfig[2].TaskName, 2048, NULL, 5, NULL);
 
+
+    start_webserver();
 
     if (taskCreate != pdPASS)
     {
