@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 
 
@@ -17,6 +18,12 @@ typedef struct
     uint32_t Period;
 } TasksConfig_t;
 
+
+typedef struct 
+{
+    bool OutState;
+
+} OutState_t;
 
 
 extern const char *TAG ;

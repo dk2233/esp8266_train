@@ -63,21 +63,21 @@ static void controlLed(void *arg)
 
 static void task_led2(void *arg)
 {
-    static uint32_t ledState = 0;
+    static uint32_t ledState = GPIO_OFF;
     while (1)
     {
-        gpio_set_level(GPIO_LED2, ledState);
-
-        if (GPIO_ON == ledState )
-        {
-            ledState = GPIO_OFF;
-            
-        }
-        else
+        if ((GPIO_ON == LedStateFromHttp) &&(GPIO_OFF == ledState))
         {
             ledState = GPIO_ON;
         }
-        printf("Led state %d\n", ledState);
+        else
+        {
+            ledState = GPIO_OFF;
+        }
+
+            gpio_set_level(GPIO_LED2, ledState);
+
+        printf("Led state %d\n", LedStateFromHttp);
         vTaskDelay(TasksConfig[2].Period);
     }
     
