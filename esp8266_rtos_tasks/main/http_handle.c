@@ -4,6 +4,8 @@
 #include <esp_log.h>
 #include <sys/param.h>
 
+static const char * TAG = "HTTP_HANDLE";
+
 uint8_t LedStateFromHttp = 0u;
 httpd_uri_t hello = {
     .uri = "/info",
@@ -99,7 +101,7 @@ esp_err_t hello_get_handler(httpd_req_t *req)
 
     /* Read URL query string length and allocate memory for length + 1,
      * extra byte for null termination */
-    char command[MAX_QUERY_SIZE]; 
+    char command[MAX_QUERY_SIZE] = "0"; 
     buf_len = httpd_req_get_url_query_len(req) + 1;
     if (buf_len > 1) {
         buf = malloc(buf_len);
@@ -139,7 +141,6 @@ esp_err_t hello_get_handler(httpd_req_t *req)
     const char* resp_str = (const char*) web_info;
 
     free(web_led_info);
-    free(web_info);
 
     httpd_resp_send(req, resp_str, strlen(resp_str));
 
@@ -148,6 +149,7 @@ esp_err_t hello_get_handler(httpd_req_t *req)
     if (httpd_req_get_hdr_value_len(req, "Host") == 0) {
         ESP_LOGI(TAG, "Request headers lost");
     }
+    free(web_info);
     return ESP_OK;
 }
 

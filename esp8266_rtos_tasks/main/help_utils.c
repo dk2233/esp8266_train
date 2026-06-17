@@ -1,4 +1,5 @@
 #include <help_utils.h>
+#include <stdio.h>
 
 void show_mac(uint8_t mac[MAC_SIZE]) 
 {   

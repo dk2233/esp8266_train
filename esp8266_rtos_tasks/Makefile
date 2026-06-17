@@ -4,6 +4,7 @@
 #
 
 PROJECT_NAME := tasks
-# CFLAGS := -v
+CXXFLAGS := --std=gnu++17
+CFLAGS := --std=c11
 include $(IDF_PATH)/make/project.mk
 

@@ -1,8 +1,6 @@
 #ifndef HELP_UTILS_H
-
 #define HELP_UTILS_H
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -24,9 +22,6 @@ typedef struct
     bool OutState;
 
 } OutState_t;
-
-
-extern const char *TAG ;
 
 
 extern void show_mac(uint8_t mac[MAC_SIZE]); 
