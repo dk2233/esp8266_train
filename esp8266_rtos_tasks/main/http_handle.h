@@ -9,8 +9,6 @@
 
 extern esp_err_t hello_get_handler(httpd_req_t *req);
 
-extern httpd_handle_t start_webserver(void);
-
 extern esp_err_t echo_post_handler(httpd_req_t *req);
 
 extern httpd_handle_t start_webserver(void);

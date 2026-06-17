@@ -3,6 +3,7 @@
 #include <http_handle.h>
 #include <esp_log.h>
 #include <sys/param.h>
+#include <stdlib.h>
 
 static const char * TAG = "HTTP_HANDLE";
 
@@ -101,7 +102,8 @@ esp_err_t hello_get_handler(httpd_req_t *req)
 
     /* Read URL query string length and allocate memory for length + 1,
      * extra byte for null termination */
-    char command[MAX_QUERY_SIZE] = "0"; 
+    char command[MAX_QUERY_SIZE]; 
+    snprintf(command, MAX_QUERY_SIZE, "%d", LedStateFromHttp); 
     buf_len = httpd_req_get_url_query_len(req) + 1;
     if (buf_len > 1) {
         buf = malloc(buf_len);
