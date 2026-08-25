@@ -55,3 +55,7 @@ dkms.conf
 *.dwo
 
 build/
+.cache/
+*.old
+*.vim
+compile_commands.json
