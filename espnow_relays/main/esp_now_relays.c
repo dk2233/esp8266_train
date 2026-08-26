@@ -8,37 +8,16 @@
 #include "esp_log.h"
 #include "rom/crc.h"
 #include <driver/gpio.h>
+#include "relays_config.h"
 
-#define ONBOARD_LED_GPIO   2  // GPIO2, czyli pin D4 na płytce
-/*
-gpio used by LED 2
-
-in ESP8266 + NodeMCU it is blue led that exists on the board
-*/
-#define GPIO_LED  GPIO_NUM_2
-/*
-additional LED connected to D1 port
-*/
-#define GPIO_RELAY_2  GPIO_NUM_5
-
-#define GPIO_RELAY  GPIO_NUM_4
-
-
-#define GPIO_ON     (1u)
-
-#define GPIO_OFF     (0u)
-
-#define BUTTON_PRESSED  (0u)
-#define BUTTON_RELEASED (1u)
 
 static const char *TAG = "espnow_receiver";
 static uint8_t example_broadcast_mac[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-static uint16_t s_example_espnow_seq[EXAMPLE_ESPNOW_DATA_MAX] = { 0, 0 };
 // Przykładowy adres MAC odbiorcy
 static uint8_t target_mac[6] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
 static xQueueHandle example_espnow_queue;
 
-static void relays_espnow_deinit(example_espnow_send_param_t *send_param)
+static void relays_espnow_deinit(espnow_send_param_t *send_param)
 {
     free(send_param->buffer);
     free(send_param);
@@ -69,7 +48,7 @@ static void relays_espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_t
 static void espnow_recv_cb(const uint8_t *mac_addr, const uint8_t *data, int len)
 {
     example_espnow_event_t evt;
-    example_espnow_event_recv_cb_t *recv_cb = &evt.info.recv_cb;
+    espnow_event_recv_cb_t *recv_cb = &evt.info.recv_cb;
 
     if (mac_addr == NULL || data == NULL || len <= 0) {
         ESP_LOGE(TAG, "Receive cb arg error");
@@ -92,14 +71,14 @@ static void espnow_recv_cb(const uint8_t *mac_addr, const uint8_t *data, int len
 }
 
 /* Prepare ESPNOW data to be sent. */
-void relays_espnow_data_prepare(example_espnow_send_param_t *send_param)
+void relays_espnow_data_prepare(espnow_send_param_t *send_param)
 {
     espnow_data_t *buf = (espnow_data_t *)send_param->buffer;
     int i = 0;
 
     assert(send_param->len >= sizeof(espnow_data_t));
 
-    buf->type = IS_BROADCAST_ADDR(send_param->dest_mac) ? EXAMPLE_ESPNOW_DATA_BROADCAST : EXAMPLE_ESPNOW_DATA_UNICAST;
+    buf->type = IS_BROADCAST_ADDR(send_param->dest_mac) ? ESPNOW_DATA_BROADCAST : ESPNOW_DATA_UNICAST;
     buf->direction = send_param->direction;
     buf->crc = 0;
     for (i = 0; i < send_param->len - sizeof(espnow_data_t); i++) {
@@ -130,11 +109,13 @@ int relays_espnow_data_parse(uint8_t *data, uint16_t data_len, uint8_t *state, u
     if (buf->key1_state == BUTTON_PRESSED) 
     {
         gpio_set_level(GPIO_RELAY_2, GPIO_ON);
+        vTaskDelay(RELAYS_DELAY_BETWEEN_SECOND_RELAY);
         gpio_set_level(GPIO_RELAY, GPIO_ON);
     }
     else if (buf->key2_state == BUTTON_PRESSED )
     {
         gpio_set_level(GPIO_RELAY_2, GPIO_OFF);
+        vTaskDelay(RELAYS_DELAY_BETWEEN_SECOND_RELAY);
         gpio_set_level(GPIO_RELAY, GPIO_OFF);
     }
 
@@ -174,11 +155,11 @@ static void relays_task_esp_now(void *pvParameter)
     bool is_broadcast = false;
     int ret;
 
-    vTaskDelay(5000 / portTICK_RATE_MS);
+    vTaskDelay(500 / portTICK_RATE_MS);
     ESP_LOGI(TAG, "Start waiting for broadcast data");
 
     /* Start sending broadcast ESPNOW data. */
-    example_espnow_send_param_t *send_param = (example_espnow_send_param_t *)pvParameter;
+    espnow_send_param_t *send_param = (espnow_send_param_t *)pvParameter;
     /*
     if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
         ESP_LOGE(TAG, "Send error");
@@ -233,11 +214,11 @@ static void relays_task_esp_now(void *pvParameter)
             }
             case RELAY_ESPNOW_RECV_CB:
             {
-                example_espnow_event_recv_cb_t *recv_cb = &evt.info.recv_cb;
+                espnow_event_recv_cb_t *recv_cb = &evt.info.recv_cb;
 
                 ret = relays_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state, &recv_seq);
                 free(recv_cb->data);
-                if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
+                if (ret == ESPNOW_DATA_BROADCAST) {
                     ESP_LOGI(TAG, "Receive %dth broadcast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
 
                     /* If MAC address does not exist in peer list, add it to peer list. */
@@ -299,7 +280,7 @@ static void relays_task_esp_now(void *pvParameter)
                         }
                     }
                 }
-                else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
+                else if (ret == ESPNOW_DATA_UNICAST) {
                     ESP_LOGI(TAG, "Receive %dth unicast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
 
                     /* If receive unicast ESPNOW data, also stop sending broadcast ESPNOW data. */
@@ -319,7 +300,7 @@ static void relays_task_esp_now(void *pvParameter)
 
 static esp_err_t relays_espnow_init(void)
 {
-    example_espnow_send_param_t *send_param;
+    espnow_send_param_t *send_param;
 
     example_espnow_queue = xQueueCreate(ESPNOW_QUEUE_SIZE, sizeof(example_espnow_event_t));
     if (example_espnow_queue == NULL) {
@@ -353,8 +334,8 @@ static esp_err_t relays_espnow_init(void)
     free(peer);
 
     /* Initialize sending parameters. */
-    send_param = malloc(sizeof(example_espnow_send_param_t));
-    memset(send_param, 0, sizeof(example_espnow_send_param_t));
+    send_param = malloc(sizeof(espnow_send_param_t));
+    memset(send_param, 0, sizeof(espnow_send_param_t));
     if (send_param == NULL) {
         ESP_LOGE(TAG, "Malloc send parameter fail");
         vSemaphoreDelete(example_espnow_queue);
@@ -403,7 +384,7 @@ void init_esp_now(void) {
 }
 void app_main()
 {
-    gpio_set_direction(ONBOARD_LED_GPIO, GPIO_MODE_OUTPUT);
+    //gpio_set_direction(ONBOARD_LED_GPIO, GPIO_MODE_OUTPUT);
     gpio_set_direction(GPIO_RELAY_2, GPIO_MODE_OUTPUT);
     gpio_set_direction(GPIO_RELAY, GPIO_MODE_OUTPUT);
     /* Print 
